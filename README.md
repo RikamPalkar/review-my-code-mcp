@@ -1,5 +1,55 @@
 # MCP C# Code Review Server
 
+## What This Project Is
+
+This project is a production-ready MCP server built in C# and .NET. It provides automated code review tools focused on C# quality, security, async correctness, performance, maintainability, naming conventions, and project organization signals.
+
+The server communicates over stdio transport, which makes it easy to plug into MCP-compatible AI clients.
+
+## Tech Stack
+
+[![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![.NET 8](https://img.shields.io/badge/.NET%208-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![MCP](https://img.shields.io/badge/Model%20Context%20Protocol-111111?style=for-the-badge&logo=protocolsdotio&logoColor=white)](https://modelcontextprotocol.io/)
+[![JSON](https://img.shields.io/badge/JSON-000000?style=for-the-badge&logo=json&logoColor=white)](https://www.json.org/)
+[![Markdown](https://img.shields.io/badge/Markdown-000000?style=for-the-badge&logo=markdown&logoColor=white)](https://www.markdownguide.org/)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/)
+
+## AI Client Compatibility
+
+This server can be connected to any MCP-compatible AI client app, including:
+
+- Cursor
+- Visual Studio Code MCP-capable clients
+- Claude Code
+- GitHub Copilot environments that support MCP
+- Other MCP-compatible tools
+
+If a client supports custom MCP server definitions (command + args), it can connect to this server.
+
+## Main MCP Tools
+
+### review_csharp_code
+
+Reviews C# source input and returns structured JSON with:
+- summary
+- score
+- issues list (severity, category, line, description, fix)
+- invocationId (unique id per review request)
+- totalRulesChecked / totalRulesMatched
+- checkedCategories
+- categoryScores (score + coverage per category)
+- suggestedChanges (normalized list for easy rendering)
+
+### health_check
+
+Returns server health and timestamp.
+
+### get_rule_backlog
+
+Reads the Add New Rules sections from category markdown files and returns pending proposals as JSON.
+
+
 ## MCP Connection JSON
 
 Use one of the following entries in your MCP client configuration.
@@ -38,46 +88,6 @@ Use one of the following entries in your MCP client configuration.
 
 For production use, prefer a Release build path:
 - /absolute/path/to/bin/Release/net8.0/McpCodeReviewServer.dll
-
-## What This Project Is
-
-This project is a production-ready MCP server built in C# and .NET. It provides automated code review tools focused on C# quality, security, async correctness, performance, maintainability, naming conventions, and project organization signals.
-
-The server communicates over stdio transport, which makes it easy to plug into MCP-compatible AI clients.
-
-## AI Client Compatibility
-
-This server can be connected to any MCP-compatible AI client app, including:
-
-- Cursor
-- Visual Studio Code MCP-capable clients
-- Claude Code
-- GitHub Copilot environments that support MCP
-- Other MCP-compatible tools
-
-If a client supports custom MCP server definitions (command + args), it can connect to this server.
-
-## Main MCP Tools
-
-### review_csharp_code
-
-Reviews C# source input and returns structured JSON with:
-- summary
-- score
-- issues list (severity, category, line, description, fix)
-- invocationId (unique id per review request)
-- totalRulesChecked / totalRulesMatched
-- checkedCategories
-- categoryScores (score + coverage per category)
-- suggestedChanges (normalized list for easy rendering)
-
-### health_check
-
-Returns server health and timestamp.
-
-### get_rule_backlog
-
-Reads the Add New Rules sections from category markdown files and returns pending proposals as JSON.
 
 ## Project Architecture
 
@@ -174,6 +184,10 @@ After adding entries, call get_rule_backlog to verify your new items are discove
 - Add automated tests for each rule provider.
 - Validate new rules against false positive and false negative scenarios.
 
+## Author
+
+Rikam Palkar is the author of this MCP C# Code Review Server, focused on building practical developer tooling for automated code quality, security, and maintainability checks.
+
 ## Quick File Map
 
 - Program.cs
@@ -185,3 +199,25 @@ After adding entries, call get_rule_backlog to verify your new items are discove
 - Rules/<Category>/*
 - documentation/rules.md
 - documentation/rule-catalog/*.md
+
+## Cursor MCP Review Demo Screenshots
+
+### 1. Starting MCP Review Workflow in Cursor
+This view shows Cursor starting the MCP workflow for app review, verifying tool schemas, and running the health check to confirm the server is active.
+
+![Starting MCP review workflow in Cursor](app/screenshots/Running%20MCP%20server.png)
+
+### 2. Tool Response with Rule Coverage and Scoring Metadata
+This output shows the `review_csharp_code` response structure including `invocationId`, `totalRulesChecked`, `totalRulesMatched`, `checkedCategories`, and `categoryScores`.
+
+![MCP review response with coverage and category scores](app/screenshots/Showing%20file%20findings.png)
+
+### 3. Prioritized Findings from Reviewing app/RuleBreakerDemo.cs
+This screen highlights prioritized review findings from the demo app, including critical and warning security/async issues and a summarized overall result.
+
+![Prioritized findings from app review](app/screenshots/Showing%20file%20findings%202.png)
+
+### 4. Review Wrap-Up: Assumptions and Change Summary
+This final screen shows the post-review summary, assumptions, and what actions were or were not applied to code after running the MCP review workflow.
+
+![Review wrap-up with assumptions and change summary](app/screenshots/Summary.png)
