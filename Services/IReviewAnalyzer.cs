@@ -13,5 +13,5 @@ public interface IReviewAnalyzer
     /// <param name="code">Source code text.</param>
     /// <param name="maxIssues">Maximum findings to return.</param>
     /// <returns>Findings list.</returns>
-    IReadOnlyCollection<ReviewIssue> Analyze(string code, int maxIssues);
+    ReviewAnalysisResult Analyze(string code, int maxIssues);
 }

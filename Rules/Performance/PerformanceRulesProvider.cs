@@ -8,6 +8,9 @@ namespace McpCodeReviewServer.Rules.Performance;
 public sealed class PerformanceRulesProvider : IRuleGroupProvider
 {
     /// <inheritdoc/>
+    public string Category => "performance";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

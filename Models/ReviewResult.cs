@@ -6,4 +6,10 @@ namespace McpCodeReviewServer.Models;
 public sealed record ReviewResult(
     string Summary,
     int Score,
-    IReadOnlyCollection<ReviewIssue> Issues);
+    IReadOnlyCollection<ReviewIssue> Issues,
+    string InvocationId,
+    int TotalRulesChecked,
+    int TotalRulesMatched,
+    IReadOnlyCollection<string> CheckedCategories,
+    IReadOnlyCollection<CategoryReviewScore> CategoryScores,
+    IReadOnlyCollection<SuggestedChange> SuggestedChanges);

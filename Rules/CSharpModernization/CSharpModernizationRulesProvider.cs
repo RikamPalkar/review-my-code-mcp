@@ -9,6 +9,9 @@ namespace McpCodeReviewServer.Rules.CSharpModernization;
 public sealed class CSharpModernizationRulesProvider : IRuleGroupProvider
 {
     /// <inheritdoc/>
+    public string Category => "c# 10 usage";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

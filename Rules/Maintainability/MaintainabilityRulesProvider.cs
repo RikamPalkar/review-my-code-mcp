@@ -8,6 +8,9 @@ namespace McpCodeReviewServer.Rules.Maintainability;
 public sealed class MaintainabilityRulesProvider : IRuleGroupProvider
 {
     /// <inheritdoc/>
+    public string Category => "maintainability";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

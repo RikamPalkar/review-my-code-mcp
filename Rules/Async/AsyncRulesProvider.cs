@@ -8,6 +8,9 @@ namespace McpCodeReviewServer.Rules.Async;
 public sealed class AsyncRulesProvider : IRuleGroupProvider
 {
     /// <inheritdoc/>
+    public string Category => "async correctness";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

@@ -24,4 +24,32 @@ public sealed class ReviewScorer : IReviewScorer
 
         return Math.Clamp(score, 0, 10);
     }
+
+    /// <inheritdoc/>
+    public IReadOnlyCollection<CategoryReviewScore> CalculateCategoryScores(
+        IReadOnlyCollection<CategoryAnalysis> categoryAnalyses,
+        IReadOnlyCollection<ReviewIssue> issues)
+    {
+        var issueLookup = issues
+            .GroupBy(issue => issue.Category, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.ToArray(), StringComparer.OrdinalIgnoreCase);
+
+        var categoryScores = new List<CategoryReviewScore>(categoryAnalyses.Count);
+        foreach (var analysis in categoryAnalyses)
+        {
+            var categoryIssues = issueLookup.TryGetValue(analysis.Category, out var found)
+                ? found
+                : Array.Empty<ReviewIssue>();
+
+            var score = CalculateScore(categoryIssues);
+            categoryScores.Add(new CategoryReviewScore(
+                analysis.Category,
+                score,
+                analysis.RulesChecked,
+                analysis.RulesMatched,
+                categoryIssues.Length));
+        }
+
+        return categoryScores;
+    }
 }

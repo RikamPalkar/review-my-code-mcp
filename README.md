@@ -65,6 +65,11 @@ Reviews C# source input and returns structured JSON with:
 - summary
 - score
 - issues list (severity, category, line, description, fix)
+- invocationId (unique id per review request)
+- totalRulesChecked / totalRulesMatched
+- checkedCategories
+- categoryScores (score + coverage per category)
+- suggestedChanges (normalized list for easy rendering)
 
 ### health_check
 

@@ -6,6 +6,11 @@ namespace McpCodeReviewServer.Rules.Abstractions;
 public interface IRuleGroupProvider
 {
     /// <summary>
+    /// Gets the stable category name represented by this rule group.
+    /// </summary>
+    string Category { get; }
+
+    /// <summary>
     /// Builds rule instances for this group.
     /// </summary>
     /// <returns>Rule instances to execute.</returns>

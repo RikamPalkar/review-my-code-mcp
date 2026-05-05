@@ -13,6 +13,9 @@ public sealed class SecurityRulesProvider : IRuleGroupProvider
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <inheritdoc/>
+    public string Category => "security";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

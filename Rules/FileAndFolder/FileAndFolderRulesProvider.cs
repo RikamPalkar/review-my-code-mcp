@@ -14,6 +14,9 @@ public sealed class FileAndFolderRulesProvider : IRuleGroupProvider
         RegexOptions.Compiled);
 
     /// <inheritdoc/>
+    public string Category => "file-folder";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

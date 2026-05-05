@@ -14,6 +14,9 @@ public sealed class MethodRulesProvider : IRuleGroupProvider
         RegexOptions.Compiled);
 
     /// <inheritdoc/>
+    public string Category => "method";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

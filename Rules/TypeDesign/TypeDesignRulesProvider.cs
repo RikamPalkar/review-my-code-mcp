@@ -14,6 +14,9 @@ public sealed class TypeDesignRulesProvider : IRuleGroupProvider
         RegexOptions.Compiled);
 
     /// <inheritdoc/>
+    public string Category => "type design";
+
+    /// <inheritdoc/>
     public IReadOnlyCollection<ICodeRule> BuildRules() =>
         new ICodeRule[]
         {

@@ -52,6 +52,8 @@ public sealed class CodeReviewTool
     {
         try
         {
+            var invocationId = Guid.NewGuid().ToString("N");
+
             if (string.IsNullOrWhiteSpace(code))
             {
                 var emptyResult = new ReviewResult(
@@ -65,22 +67,68 @@ public sealed class CodeReviewTool
                             null,
                             "Input code is empty.",
                             "Provide non-empty C# code to review.")
-                    });
+                    },
+                    invocationId,
+                    0,
+                    0,
+                    Array.Empty<string>(),
+                    Array.Empty<CategoryReviewScore>(),
+                    Array.Empty<SuggestedChange>());
 
                 return JsonSerializer.Serialize(emptyResult, JsonOptions);
             }
 
-            var findings = _reviewAnalyzer.Analyze(code, maxIssues);
-            var score = _reviewScorer.CalculateScore(findings);
-            var summary = findings.Count == 0
-                ? "Code looks clean with no major issues."
-                : $"Detected {findings.Count} issue(s) across review dimensions.";
+            var analysis = _reviewAnalyzer.Analyze(code, maxIssues);
+            var score = _reviewScorer.CalculateScore(analysis.AllIssues);
+            var categoryScores = _reviewScorer.CalculateCategoryScores(analysis.CategoryAnalyses, analysis.AllIssues);
+            var checkedCategories = analysis.CategoryAnalyses
+                .Select(category => category.Category)
+                .OrderBy(category => category, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
 
-            return JsonSerializer.Serialize(new ReviewResult(summary, score, findings), JsonOptions);
+            var totalRulesChecked = analysis.CategoryAnalyses.Sum(category => category.RulesChecked);
+            var totalRulesMatched = analysis.CategoryAnalyses.Sum(category => category.RulesMatched);
+
+            var suggestedChanges = analysis.Issues
+                .Select(issue => new SuggestedChange(
+                    issue.Severity,
+                    issue.Category,
+                    issue.Line,
+                    issue.Description,
+                    issue.Fix))
+                .ToArray();
+
+            var summary = analysis.AllIssues.Count == 0
+                ? "Code looks clean with no major issues."
+                : analysis.AllIssues.Count > analysis.Issues.Count
+                    ? $"Detected {analysis.AllIssues.Count} issue(s) across review dimensions. Returning top {analysis.Issues.Count} based on maxIssues={Math.Max(1, maxIssues)}."
+                    : $"Detected {analysis.AllIssues.Count} issue(s) across review dimensions.";
+
+            _logger.LogInformation(
+                "review_csharp_code invoked. InvocationId={InvocationId}, InputChars={InputChars}, MaxIssues={MaxIssues}, RulesChecked={RulesChecked}, RulesMatched={RulesMatched}, TotalIssues={TotalIssues}",
+                invocationId,
+                code.Length,
+                maxIssues,
+                totalRulesChecked,
+                totalRulesMatched,
+                analysis.AllIssues.Count);
+
+            return JsonSerializer.Serialize(new ReviewResult(
+                summary,
+                score,
+                analysis.Issues,
+                invocationId,
+                totalRulesChecked,
+                totalRulesMatched,
+                checkedCategories,
+                categoryScores,
+                suggestedChanges), JsonOptions);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error while reviewing C# code.");
+
+            var invocationId = Guid.NewGuid().ToString("N");
 
             var errorResult = new ReviewResult(
                 "Review failed due to an internal error.",
@@ -93,7 +141,13 @@ public sealed class CodeReviewTool
                         null,
                         $"Internal review error: {ex.Message}",
                         "Retry with valid C# input. If the issue persists, inspect server logs.")
-                });
+                },
+                invocationId,
+                0,
+                0,
+                Array.Empty<string>(),
+                Array.Empty<CategoryReviewScore>(),
+                Array.Empty<SuggestedChange>());
 
             return JsonSerializer.Serialize(errorResult, JsonOptions);
         }
