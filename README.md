@@ -6,7 +6,7 @@ This project is a production-ready MCP server built in C# and .NET. It provides 
 
 The server communicates over stdio transport, which makes it easy to plug into MCP-compatible AI clients.
 
-## Tech Stack
+## Tech Stack Test
 
 [![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![.NET 8](https://img.shields.io/badge/.NET%208-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
