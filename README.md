@@ -6,7 +6,7 @@ This project is a production-ready MCP server built in C# and .NET. It provides 
 
 The server communicates over stdio transport, which makes it easy to plug into MCP-compatible AI clients.
 
-## Tech Stack Test
+## Tech Stack
 
 [![C#](https://img.shields.io/badge/C%23-239120?style=for-the-badge&logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![.NET 8](https://img.shields.io/badge/.NET%208-512BD4?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
@@ -188,16 +188,221 @@ After adding entries, call get_rule_backlog to verify your new items are discove
 
 Rikam Palkar is the author of this MCP C# Code Review Server, focused on building practical developer tooling for automated code quality, security, and maintainability checks.
 
-## Quick File Map
+## Detailed Architecture & Key Files
 
-- Program.cs
-- Tools/CodeReviewTool.cs
-- Services/ReviewAnalyzer.cs
-- Services/ReviewScorer.cs
-- Services/MarkdownRuleBacklogService.cs
-- Rules/Abstractions/*
-- Rules/<Category>/*
-- documentation/rules.md
+### Entry Point: Program.cs
+
+**Purpose:** Initializes the MCP server, registers dependency injection, and configures stdio transport.
+
+```csharp
+var builder = Host.CreateApplicationBuilder(args);
+
+builder.Services.AddCodeReviewEngine();
+builder.Services
+    .AddMcpServer()
+    .WithStdioServerTransport()
+    .WithTools<CodeReviewTool>();
+
+await builder.Build().RunAsync();
+```
+
+This sets up the entire review pipeline with DI, registers the code review engine (rules + services), and starts the MCP server.
+
+---
+
+### MCP Tool Definition: Tools/CodeReviewTool.cs
+
+**Purpose:** Exposes the two MCP tool methods that clients call: `review_csharp_code` and `get_rule_backlog`.
+
+**Key Methods:**
+- `ReviewCSharpCode(string code, int maxIssues)` — Returns JSON with summary, score, issues, categoryScores, and invocationId
+- `GetRuleBacklog()` — Returns pending rule proposals from markdown documentation
+- `HealthCheck()` — Returns server health and timestamp
+
+```csharp
+[McpServerTool(Name = "review_csharp_code")]
+[Description("Reviews C# code for correctness, security, performance, maintainability, async behavior, and design rules. Returns structured JSON.")]
+public string ReviewCSharpCode(
+    [Description("Raw C# source code to review.")] string code,
+    [Description("Maximum number of issues to return.")] int maxIssues = 50)
+```
+
+The tool coordinates three services: `IReviewAnalyzer`, `IReviewScorer`, and `IRuleBacklogService`.
+
+---
+
+### Rule Execution Engine: Services/ReviewAnalyzer.cs
+
+**Purpose:** Executes all registered rules against the source code and collects findings.
+
+**Key Method:**
+- `Analyze(string code, int maxIssues) : ReviewAnalysisResult` — Normalizes code into lines, creates a RuleContext, runs every registered rule, and returns bounded findings
+
+```csharp
+public ReviewAnalysisResult Analyze(string code, int maxIssues)
+{
+    var normalizedMax = Math.Max(1, maxIssues);
+    var lines = NormalizeLines(code);
+    var context = new RuleContext(code, lines);
+
+    foreach (var rule in _rules)
+    {
+        var category = string.IsNullOrWhiteSpace(rule.Category) ? "uncategorized" : rule.Category;
+        // Execute each rule and collect issues
+    }
+}
+```
+
+It groups findings by category and category name for scoring later.
+
+---
+
+### Scoring Engine: Services/ReviewScorer.cs
+
+**Purpose:** Calculates the overall review score (0-10) and per-category scores.
+
+**Key Methods:**
+- `CalculateScore(IReadOnlyCollection<ReviewIssue> issues) : int` — Starts at 10, deducts 3 for critical, 2 for warning, 1 for suggestion; clamps to 0-10
+- `CalculateCategoryScores(IReadOnlyCollection<CategoryAnalysis> categoryAnalyses, ...) : IReadOnlyCollection<CategoryReviewScore>` — Scores each category independently
+
+```csharp
+public int CalculateScore(IReadOnlyCollection<ReviewIssue> issues)
+{
+    var score = 10;
+    foreach (var issue in issues)
+    {
+        score -= issue.Severity switch
+        {
+            "critical" => 3,
+            "warning" => 2,
+            _ => 1
+        };
+    }
+    return Math.Clamp(score, 0, 10);
+}
+```
+
+---
+
+### Rule Backlog Reader: Services/MarkdownRuleBacklogService.cs
+
+**Purpose:** Reads "Add New Rules" sections from markdown files in `documentation/rule-catalog/` and returns pending proposals as JSON.
+
+**Key Method:**
+- `ReadPendingRules() : IReadOnlyDictionary<string, IReadOnlyCollection<string>>` — Scans all .md files in rule-catalog, extracts entries under "Add New Rules", returns a map of filename → list of pending rules
+
+```csharp
+public IReadOnlyDictionary<string, IReadOnlyCollection<string>> ReadPendingRules()
+{
+    var result = new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.OrdinalIgnoreCase);
+    var files = Directory.GetFiles(_rulesDirectory, "*.md", SearchOption.TopDirectoryOnly);
+    foreach (var file in files)
+    {
+        var entries = ExtractAddNewRuleEntries(file);
+        result[Path.GetFileName(file)] = entries;
+    }
+    return result;
+}
+```
+
+Enables non-code rule proposals via markdown.
+
+---
+
+### Rule Abstractions: Rules/Abstractions/
+
+**Purpose:** Defines the base contracts for rules and rule providers.
+
+**ICodeRule Interface:**
+- `Evaluate(RuleContext context) : ReviewIssue?` — Executes one rule; returns a finding or null
+
+```csharp
+public interface ICodeRule
+{
+    ReviewIssue? Evaluate(RuleContext context);
+}
+```
+
+**IRuleGroupProvider Interface:**
+- `Category : string` — Stable category name (e.g., "async correctness", "security")
+- `BuildRules() : IReadOnlyCollection<ICodeRule>` — Returns rule instances for this category
+
+```csharp
+public interface IRuleGroupProvider
+{
+    string Category { get; }
+    IReadOnlyCollection<ICodeRule> BuildRules();
+}
+```
+
+**Concrete Implementations:** `RegexRule`, `ContainsTokenRule`, `DelegateRule` — reusable patterns for pattern matching, token detection, and custom logic.
+
+---
+
+### Rule Providers by Category: Rules/<Category>/*
+
+**Purpose:** Each category implements `IRuleGroupProvider` to build and return its rules.
+
+**Example: AsyncRulesProvider**
+
+```csharp
+public sealed class AsyncRulesProvider : IRuleGroupProvider
+{
+    public string Category => "async correctness";
+
+    public IReadOnlyCollection<ICodeRule> BuildRules() =>
+        new ICodeRule[]
+        {
+            new ContainsTokenRule(
+                "async void ",
+                "critical",
+                "async correctness",
+                "Avoid async void methods except event handlers; exceptions can be unobserved and crash the process.",
+                "Return Task instead of async void. Example: public async Task MyMethodAsync() { ... }"),
+            new ContainsTokenRule(
+                ".Result",
+                "warning",
+                "async correctness",
+                "Synchronous blocking on Task via .Result can deadlock and hurts scalability.",
+                "Use await instead of .Result. Propagate async through the call chain."),
+            // ... more rules
+        };
+}
+```
+
+**Other Categories Follow Same Pattern:**
+- `SecurityRulesProvider` — SQL injection, hard-coded secrets, etc.
+- `PerformanceRulesProvider` — Unnecessary boxing, LINQ inefficiencies, etc.
+- `MaintainabilityRulesProvider` — Method length, parameter count, naming, etc.
+- `TypeDesignRulesProvider` — Class/interface/record design rules
+- `MethodRulesProvider` — Method-specific patterns
+- `FileAndFolderRulesProvider` — File naming, folder structure
+- `CSharpModernizationRulesProvider` — C# 10+ feature adoption
+
+Each provider is registered in `Services/ServiceCollectionExtensions.cs` via DI.
+
+---
+
+### Data Models: Models/
+
+**Purpose:** Defines response contracts for JSON serialization.
+
+- `ReviewResult` — Top-level response wrapper with summary, score, issues, suggestedChanges, categoryScores, invocationId
+- `ReviewIssue` — Individual finding: severity, category, line, description, fix
+- `CategoryReviewScore` — Score and coverage count per category
+- `SuggestedChange` — Normalized fix list for rendering
+
+---
+
+### Documentation: documentation/rule-catalog/
+
+**Purpose:** Markdown files that document existing rules and capture backlog proposals.
+
+Each file (e.g., `async-rules.md`) contains:
+1. **Existing Rules** — Implemented checks with descriptions
+2. **Add New Rules** — Proposed rules; read by `get_rule_backlog` tool
+
+Teams can propose new rules without changing code by editing markdown.
 - documentation/rule-catalog/*.md
 
 ## Cursor MCP Review Demo Screenshots

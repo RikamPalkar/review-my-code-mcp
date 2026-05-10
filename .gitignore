@@ -2,6 +2,9 @@
 bin/
 obj/
 
+# Generated or excluded directories
+article/
+
 # User and OS files
 .DS_Store
 *.user
